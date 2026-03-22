@@ -9,39 +9,36 @@ const API = axios.create({
   timeout: 10000,
 });
 
-// ✅ Debug interceptors (optional but helpful)
+// ✅ Debug interceptors
 API.interceptors.request.use((req) => {
-  console.log("Request:", req.url, req.data);
+  console.log("➡️ Request:", req.method?.toUpperCase(), req.url, req.data);
   return req;
 });
 
 API.interceptors.response.use(
   (res) => {
-    console.log("Response:", res.data);
+    console.log("✅ Response:", res.data);
     return res;
   },
   (err) => {
-    console.error("API Error:", err.response?.data || err.message);
+    console.error("❌ API Error:", err.response?.data || err.message);
     return Promise.reject(err);
   }
 );
 
-// ✅ Analyze Text
+// ✅ Analyze Text API
 const analyzeText = async (text) => {
-  const res = await API.post("/reviews", { text });
+  const res = await API.post("/reviews", { text }); // make sure backend route matches
   return res.data;
 };
 
-// ✅ Upload CSV
+// ✅ Upload CSV API
 const uploadCSV = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await API.post("/upload-csv", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
+  // ⚠️ DO NOT manually set Content-Type (Axios handles it)
+  const res = await API.post("/upload-csv", formData);
 
   return res.data;
 };
@@ -51,38 +48,69 @@ export default function SentimentDashboard() {
   const [review, setReview] = useState("");
   const [result, setResult] = useState("");
   const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // 🔍 Analyze handler
   const handleAnalyze = async () => {
+    if (!review.trim()) {
+      alert("Please enter a review");
+      return;
+    }
+
     try {
+      setLoading(true);
+      setResult("Analyzing...");
+
       const data = await analyzeText(review);
-      setResult(data.sentiment || JSON.stringify(data));
+
+      // handle different backend response formats
+      setResult(
+        data.sentiment ||
+        data.result ||
+        JSON.stringify(data)
+      );
     } catch (err) {
-      alert("Analysis failed");
+      alert("Analysis failed. Check console.");
+    } finally {
+      setLoading(false);
     }
   };
 
   // 📂 Upload handler
   const handleUpload = async () => {
     if (!file) {
-      alert("Please select a file");
+      alert("Please select a CSV file");
       return;
     }
 
     try {
+      setLoading(true);
+
       const data = await uploadCSV(file);
-      console.log(data);
-      alert("Upload successful");
+
+      console.log("Upload result:", data);
+
+      alert("✅ Upload successful");
+
+      // OPTIONAL: show summary if backend sends it
+      if (data.summary) {
+        alert(
+          `Total: ${data.summary.total}\nPositive: ${data.summary.positive}\nNegative: ${data.summary.negative}`
+        );
+      }
+
     } catch (err) {
-      alert("Upload failed");
+      alert("❌ Upload failed. Check console.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: "20px" }}>
+    <div style={{ padding: "20px", maxWidth: "600px", margin: "auto" }}>
       <h2>Sentiment Dashboard</h2>
 
-      {/* Analyze Section */}
+      {/* 🔍 Analyze Section */}
       <textarea
         value={review}
         onChange={(e) => setReview(e.target.value)}
@@ -91,7 +119,9 @@ export default function SentimentDashboard() {
         style={{ width: "100%", marginBottom: "10px" }}
       />
 
-      <button onClick={handleAnalyze}>Analyze</button>
+      <button onClick={handleAnalyze} disabled={loading}>
+        {loading ? "Processing..." : "Analyze"}
+      </button>
 
       <p>
         <strong>Result:</strong> {result}
@@ -99,14 +129,16 @@ export default function SentimentDashboard() {
 
       <hr />
 
-      {/* Upload Section */}
+      {/* 📂 Upload Section */}
       <input
         type="file"
         accept=".csv"
         onChange={(e) => setFile(e.target.files[0])}
       />
 
-      <button onClick={handleUpload}>Upload CSV</button>
+      <button onClick={handleUpload} disabled={loading}>
+        {loading ? "Uploading..." : "Upload CSV"}
+      </button>
     </div>
   );
 }
