@@ -4,8 +4,8 @@ const API = axios.create({
   baseURL: "https://customer-review-sentiment-analysis-4.onrender.com",
 });
 
-export const analyzeReview = (text) => {
-  return API.post("/analyze", { text });
+export const analyzeText = (text) => 
+  API.post("/reviews", { text });
 };
 export const uploadCSV = (file) => {
   const formData = new FormData();
